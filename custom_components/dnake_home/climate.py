@@ -43,7 +43,7 @@ _air_condition_fan_table = {0: FAN_LOW, 1: FAN_MIDDLE, 2: FAN_HIGH}
 
 def load_climates(device_list):
     air_conditions = [
-        DnakeAirCondition(device) for device in device_list if device.get("ty") == 16640
+        DnakeAirCondition(device) for device in device_list if device.get("ty") == 16665
     ]
     _LOGGER.info(f"find air_condition num: {len(air_conditions)}")
     assistant.entries["climate"] = air_conditions
