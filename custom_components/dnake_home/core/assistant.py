@@ -1,8 +1,8 @@
 import logging
 import requests
 
-from .constant import Action, Cmd, Power
-from .utils import encode_auth, get_uuid
+from constant import Action, Cmd, Power
+from utils import encode_auth, get_uuid
 
 _LOGGER = logging.getLogger(__name__)
 
