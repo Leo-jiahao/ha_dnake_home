@@ -4,6 +4,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.components.fan import FanEntityFeature
 
 from .core.assistant import assistant
 from .core.constant import DOMAIN, MANUFACTURER
@@ -15,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 FAN_LOW = "low"
 FAN_MIDDLE = "medium"
 FAN_HIGH = "high"
-SUPPORT_SET_SPEED = 1  # 表示支持调速
+SUPPORT_SET_SPEED = FanEntityFeature.SET_SPEED  # 表示支持调速
 
 # 映射表
 _fan_speed_table = {0: FAN_LOW, 1: FAN_MIDDLE, 2: FAN_HIGH}
@@ -131,3 +132,12 @@ class DnakeFreshAir(FanEntity):
         )
         if success:
             s
+
+    def update_state(self, state):
+        """更新设备的状态"""
+        _LOGGER.debug("Updating state for fresh air %s: %s", self._name, state)
+        self._is_on = state.get("powerOn", 0) == 1
+        self._fan_mode = _fan_speed_table.get(state.get("speed"), FAN_LOW)
+        self.async_write_ha_state()
+
+        
