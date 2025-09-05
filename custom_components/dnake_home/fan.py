@@ -24,7 +24,7 @@ _fan_speed_reverse = {v: k for k, v in _fan_speed_table.items()}
 
 def load_fans(device_list):
     """加载新风设备"""
-    fans = [DnakeFreshAir(device) for device in device_list if device.get("ty") == 16389]
+    fans = [DnakeFreshAir(device) for device in device_list if device.get("ty") == 16926]
     _LOGGER.info(f"find fresh_air num: {len(fans)}")
     assistant.entries["fan"] = fans
 
