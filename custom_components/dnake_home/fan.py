@@ -21,21 +21,30 @@ SUPPORT_SET_SPEED = 1  # 表示支持调速
 _fan_speed_table = {0: FAN_LOW, 1: FAN_MIDDLE, 2: FAN_HIGH}
 _fan_speed_reverse = {v: k for k, v in _fan_speed_table.items()}
 
+FRESH_AIR_TYPE = 16926  # 新风设备类型
+
 
 def load_fans(device_list):
     """加载新风设备"""
-    fans = [DnakeFreshAir(device) for device in device_list if device.get("ty") == 16926]
+    fans = []
+    for device in device_list:
+        if device.get("ty") == FRESH_AIR_TYPE:
+            _LOGGER.debug("Found fresh air device: %s", device)
+            fans.append(DnakeFreshAir(device))
     _LOGGER.info(f"find fresh_air num: {len(fans)}")
     assistant.entries["fan"] = fans
 
 
 def update_fans_state(states):
     """更新新风设备状态"""
-    fans = assistant.entries["fan"]
+    fans = assistant.entries.get("fan", [])
     for fan in fans:
         state = next((s for s in states if fan.is_hint_state(s)), None)
         if state:
+            _LOGGER.debug("Updating fresh air state for %s: %s", fan.name, state)
             fan.update_state(state)
+        else:
+            _LOGGER.debug("No matching state found for fresh air device %s", fan.name)
 
 
 async def async_setup_entry(
@@ -45,6 +54,7 @@ async def async_setup_entry(
 ):
     fan_list = assistant.entries.get("fan")
     if fan_list:
+        _LOGGER.debug("Adding fresh air entities to HA: %s", [f.name for f in fan_list])
         async_add_entities(fan_list)
 
 
@@ -58,6 +68,7 @@ class DnakeFreshAir(FanEntity):
         self._dev_type = device.get("ty")
         self._is_on = device.get("powerOn", 0) == 1
         self._fan_mode = _fan_speed_table.get(device.get("speed"), FAN_LOW)
+        _LOGGER.debug("Initialized DnakeFreshAir: %s", self.__dict__)
 
     def is_hint_state(self, state):
         return (
@@ -105,6 +116,7 @@ class DnakeFreshAir(FanEntity):
         return SUPPORT_SET_SPEED
 
     async def async_turn_on(self, **kwargs):
+        _LOGGER.debug("Turning on fresh air %s", self._name)
         success = await self.hass.async_add_executor_job(
             assistant.set_fan_power, self._dev_no, self._dev_ch, True
         )
@@ -113,23 +125,9 @@ class DnakeFreshAir(FanEntity):
             self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
+        _LOGGER.debug("Turning off fresh air %s", self._name)
         success = await self.hass.async_add_executor_job(
             assistant.set_fan_power, self._dev_no, self._dev_ch, False
         )
         if success:
-            self._is_on = False
-            self.async_write_ha_state()
-
-    async def async_set_speed(self, speed):
-        speed_index = get_key_by_value(_fan_speed_table, speed, 0)
-        success = await self.hass.async_add_executor_job(
-            assistant.set_fan_speed, self._dev_no, self._dev_ch, speed_index
-        )
-        if success:
-            self._fan_mode = speed
-            self.async_write_ha_state()
-
-    def update_state(self, state):
-        self._is_on = state.get("powerOn", 0) == 1
-        self._fan_mode = _fan_speed_table.get(state.get("speed"), FAN_LOW)
-        self.async_write_ha_state()
+            s
