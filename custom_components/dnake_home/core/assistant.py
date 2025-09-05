@@ -204,6 +204,28 @@ class Assistant(__AssistantCore):
                 "devCh": dev_ch,
             }
         )
+    
+    def set_fan_power(self, dev_no, dev_ch, is_open: bool):
+        cmd = Cmd.On if is_open else Cmd.Off
+        return self.do_action({
+            "action": Action.CtrlDev.value,
+            "cmd": Cmd.Fan.value,
+            "oper": cmd.value,
+            "devNo": dev_no,
+            "devCh": dev_ch,
+        })
+
+    def set_fan_speed(self, dev_no, dev_ch, speed_level: int):
+        return self.do_action({
+            "action": Action.CtrlDev.value,
+            "cmd": Cmd.Fan.value,
+            "oper": "setFlow",    # 或者 "setSpeed"，可测试
+            "param": speed_level,
+            "devNo": dev_no,
+            "devCh": dev_ch,
+        })
+
+
 
 
 assistant = Assistant()

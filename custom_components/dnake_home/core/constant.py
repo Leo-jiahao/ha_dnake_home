@@ -17,16 +17,18 @@ class Action(Enum):
 class Cmd(Enum):
     # 灯.etc
     On = "on"
-    # 灯.etc
     Off = "off"
     # 窗帘.etc
     Stop = "stop"
-    # 窗帘.etc
     Level = "level"
     # 空调
     AirCondition = "airCondition"
+    # 新风
+    Fan = "fan"       # 新增，用于新风系统
+
 
 
 class Power(Enum):
     On = "powerOn"
     Off = "powerOff"
+
