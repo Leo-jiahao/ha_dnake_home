@@ -4,6 +4,7 @@ import logging
 from homeassistant.const import UnitOfMass
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
+    FAN_OFF,
     FAN_LOW,
     FAN_MIDDLE,
     FAN_HIGH,
@@ -257,8 +258,11 @@ class DnakeAirCondition(ClimateEntity):
         )
         self.async_write_ha_state()
 
-_air_fresh_fan_table = {1: FAN_LOW, 2: FAN_MIDDLE, 3: FAN_HIGH}
-
+_air_fresh_fan_table = {0: FAN_OFF , 1: FAN_LOW, 2: FAN_MIDDLE, 3: FAN_HIGH}
+_air_fresh_hvac_table = {
+    0: HVACMode.OFF,
+    1: HVACMode.FAN_ONLY,
+}
 
 # 配置加载和实体更新
 def load_air_freshs(device_list):
@@ -294,11 +298,19 @@ class DnakeAirFresh(ClimateEntity):
         self._dev_type = device.get("ty")
         self._is_on = device.get("powerOn", 0) == 1
         self._current_pm25 = device.get("pm25", 0)
-        self._fan_mode = _air_fresh_fan_table.get(device.get("speed"), FAN_LOW)
+        self._fan_mode = _air_fresh_fan_table.get(device.get("speed"), FAN_OFF)
 
     def is_hint_state(self, state):
         return state.get('devType') == self._dev_type and state.get("devNo") == self._dev_no and state.get(
             "devCh") == self._dev_ch
+    
+    @property
+    def hvac_mode(self):
+        return HVACMode.FAN_ONLY if self._is_on else HVACMode.OFF
+    
+    @property
+    def hvac_modes(self):
+        return list(_air_fresh_hvac_table.values())
     
     @property
     def unique_id(self):
@@ -377,6 +389,15 @@ class DnakeAirFresh(ClimateEntity):
         if is_success:
             self._is_on = is_open
             self.async_write_ha_state()
+
+    async def async_set_hvac_mode(self, hvac_mode):
+        if hvac_mode == HVACMode.OFF:
+            await self.async_turn_off()
+            self._is_on = False
+        else:
+            await self.async_turn_on()
+            self._is_on = True
+        self.async_write_ha_state()
 
     def update_state(self, state):
         """更新新风状态"""
