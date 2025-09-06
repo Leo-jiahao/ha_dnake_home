@@ -13,7 +13,7 @@ from .airfresh import load_air_freshs, update_air_fresh_state
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.LIGHT, Platform.COVER, Platform.CLIMATE, Platform.SENSOR]
+PLATFORMS = [Platform.LIGHT, Platform.COVER, Platform.CLIMATE]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
