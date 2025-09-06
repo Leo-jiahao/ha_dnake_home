@@ -31,7 +31,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             load_lights(device_list)
             load_covers(device_list)
             load_climates(device_list)
-            load_air_freshs(device_list)
+            # load_air_freshs(device_list)
             # 初始化各类设备
             await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -41,7 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 update_lights_state(states)
                 update_covers_state(states)
                 update_climates_state(states)
-                update_air_fresh_state(states)
+                # update_air_fresh_state(states)
 
             # 初始化设备状态
             await _async_refresh_states()
