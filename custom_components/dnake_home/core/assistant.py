@@ -205,25 +205,97 @@ class Assistant(__AssistantCore):
             }
         )
     
-    def set_fan_power(self, dev_no, dev_ch, is_open: bool):
-        cmd = Cmd.On if is_open else Cmd.Off
-        return self.do_action({
-            "action": Action.CtrlDev.value,
-            "cmd": Cmd.Fan.value,
-            "oper": cmd.value,
-            "devNo": dev_no,
-            "devCh": dev_ch,
-        })
+    def set_air_fresh_power(self, dev_no, dev_ch, is_open: bool):
+        """控制新风系统的电源开关"""
+        power = Power.On if is_open else Power.Off
+        return self.do_action(
+            {
+                "action": Action.CtrlDev.value,
+                "cmd": Cmd.AirFresh.value,
+                "oper": power.value,
+                "devNo": dev_no,
+                "devCh": dev_ch,
+            }
+        )
 
-    def set_fan_speed(self, dev_no, dev_ch, speed_level: int):
-        return self.do_action({
-            "action": Action.CtrlDev.value,
-            "cmd": Cmd.Fan.value,
-            "oper": "setFlow",    # 或者 "setSpeed"，可测试
-            "param": speed_level,
-            "devNo": dev_no,
-            "devCh": dev_ch,
-        })
+    def set_air_fresh_speed(self, dev_no, dev_ch, speed: int):
+        """设置新风的风速"""
+        return self.do_action(
+            {
+                "action": Action.CtrlDev.value,
+                "cmd": Cmd.AirFresh.value,
+                "oper": "setFlow",
+                "param": speed,
+                "devNo": dev_no,
+                "devCh": dev_ch,
+            }
+        )
+
+    def set_air_fresh_mode(self, dev_no, dev_ch, mode: int):
+        """设置新风的工作模式"""
+        return self.do_action(
+            {
+                "action": Action.CtrlDev.value,
+                "cmd": Cmd.AirFresh.value,
+                "oper": "setMode",
+                "param": mode,
+                "devNo": dev_no,
+                "devCh": dev_ch,
+            }
+        )
+
+    def set_air_heater_power(self, dev_no, dev_ch, is_open: bool):
+        """控制地暖的电源开关"""
+        power = Power.On if is_open else Power.Off
+        return self.do_action(
+            {
+                "action": Action.CtrlDev.value,
+                "cmd": Cmd.AirHeater.value,
+                "oper": power.value,
+                "devNo": dev_no,
+                "devCh": dev_ch,
+            }
+        )
+
+    def set_air_heater_temperature(self, dev_no, dev_ch, temp: int):
+        """设置地暖的温度"""
+        return self.do_action(
+            {
+                "action": Action.CtrlDev.value,
+                "cmd": Cmd.AirHeater.value,
+                "oper": "setTemp",
+                "param": temp,
+                "devNo": dev_no,
+                "devCh": dev_ch,
+            }
+        )
+
+    def set_air_heater_high_temp_protect(self, dev_no, dev_ch, temp: int):
+        """设置地暖的高温保护"""
+        return self.do_action(
+            {
+                "action": Action.CtrlDev.value,
+                "cmd": Cmd.AirHeater.value,
+                "oper": "setHighTempProtect",  # 设置高温保护
+                "param": temp,
+                "devNo": dev_no,
+                "devCh": dev_ch,
+            }
+        )
+
+    def set_air_heater_low_temp_protect(self, dev_no, dev_ch, enable: bool):
+        """启用或禁用地暖的低温保护"""
+        param = 1 if enable else 0  # 1表示启用，0表示禁用
+        return self.do_action(
+            {
+                "action": Action.CtrlDev.value,
+                "cmd": Cmd.AirHeater.value,
+                "oper": "enableLowTempProtect",  # 启用低温保护
+                "param": param,
+                "devNo": dev_no,
+                "devCh": dev_ch,
+            }
+        )
 
 
 

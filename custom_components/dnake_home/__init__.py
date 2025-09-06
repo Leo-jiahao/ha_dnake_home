@@ -8,12 +8,11 @@ from homeassistant.helpers.event import async_track_time_interval
 from .core.assistant import assistant
 from .cover import load_covers, update_covers_state
 from .light import load_lights, update_lights_state
-from .climate import load_climates, update_climates_state
-from .fan import load_fans, update_fans_state  # 新增 fan
+from .climate import load_climates, update_climates_state, load_air_freshs, update_air_fresh_state
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.LIGHT, Platform.COVER, Platform.CLIMATE, Platform.FAN]  # 增加 FAN
+PLATFORMS = [Platform.LIGHT, Platform.COVER, Platform.CLIMATE]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -32,7 +31,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             load_lights(device_list)
             load_covers(device_list)
             load_climates(device_list)
-            load_fans(device_list)  # 新增 fan
+            load_air_freshs(device_list)
             # 初始化各类设备
             await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -42,7 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 update_lights_state(states)
                 update_covers_state(states)
                 update_climates_state(states)
-                update_fans_state(states)  # 新增 fan 状态更新
+                update_air_fresh_state(states)
 
             # 初始化设备状态
             await _async_refresh_states()

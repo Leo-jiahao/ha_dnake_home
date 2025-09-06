@@ -24,8 +24,9 @@ class Cmd(Enum):
     # 空调
     AirCondition = "airCondition"
     # 新风
-    Fan = "fan"       # 新增，用于新风系统
-
+    AirFresh = "airFresh"
+    # 地暖
+    AirHeater = "airHeater"
 
 
 class Power(Enum):
