@@ -1,76 +1,79 @@
 import logging
-from homeassistant.components.fan import FanEntity
+from typing import Any, Optional
+
+from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util.percentage import ranged_value_to_percentage, percentage_to_ranged_value
 
 from .core.assistant import assistant
 from .core.constant import DOMAIN, MANUFACTURER
-from .core.utils import get_key_by_value
 
 _LOGGER = logging.getLogger(__name__)
 
-# 自定义常量，替代 fan.const
-FAN_LOW = "low"
-FAN_MIDDLE = "medium"
-FAN_HIGH = "high"
-SUPPORT_SET_SPEED = 1  # 表示支持调速
+# Mapping for fan speeds (0: off, 1: low, 2: medium, 3: high)
+_air_fresh_fan_table = {
+    0: "off",
+    1: "low",
+    2: "medium",
+    3: "high",
+}
 
-# 映射表
-_fan_speed_table = {0: FAN_LOW, 1: FAN_MIDDLE, 2: FAN_HIGH}
-_fan_speed_reverse = {v: k for k, v in _fan_speed_table.items()}
-
-FRESH_AIR_TYPE = 16926  # 新风设备类型
+# Number of speed levels (excluding off)
+SPEED_COUNT = len(_air_fresh_fan_table) - 1  # 3 speeds: low, medium, high
 
 
 def load_fans(device_list):
-    """加载新风设备"""
-    fans = []
-    for device in device_list:
-        if device.get("ty") == FRESH_AIR_TYPE:
-            _LOGGER.debug("Found fresh air device: %s", device)
-            fans.append(DnakeFreshAir(device))
-    _LOGGER.info(f"find fresh_air num: {len(fans)}")
+    """Load fresh air fan devices from the device list."""
+    fans = [
+        DnakeAirFreshFan(device) for device in device_list if device.get("ty") == 16926
+    ]
+    _LOGGER.info(f"Found fresh air fan devices: {len(fans)}")
     assistant.entries["fan"] = fans
 
 
 def update_fans_state(states):
-    """更新新风设备状态"""
+    """Update the state of all fan entities based on received state data."""
     fans = assistant.entries.get("fan", [])
     for fan in fans:
-        state = next((s for s in states if fan.is_hint_state(s)), None)
+        state = next((state for state in states if fan.is_hint_state(state)), None)
         if state:
-            _LOGGER.debug("Updating fresh air state for %s: %s", fan.name, state)
             fan.update_state(state)
-        else:
-            _LOGGER.debug("No matching state found for fresh air device %s", fan.name)
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-):
-    fan_list = assistant.entries.get("fan")
+) -> None:
+    """Set up fan entities from a config entry."""
+    fan_list = assistant.entries.get("fan", [])
     if fan_list:
-        _LOGGER.debug("Adding fresh air entities to HA: %s", [f.name for f in fan_list])
         async_add_entities(fan_list)
 
 
-class DnakeFreshAir(FanEntity):
-    """新风系统实体"""
+class DnakeAirFreshFan(FanEntity):
+    """Representation of a Dnake fresh air fan entity."""
+
+    _attr_supported_features = FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
+    _attr_speed_count = SPEED_COUNT  # 3 speed levels (low, medium, high)
+    _enable_turn_on_off_backwards_compatibility = False  # Disable deprecated turn on/off compatibility
 
     def __init__(self, device):
+        """Initialize the fan entity."""
         self._name = device.get("na")
         self._dev_no = device.get("nm")
         self._dev_ch = device.get("ch")
         self._dev_type = device.get("ty")
         self._is_on = device.get("powerOn", 0) == 1
-        self._fan_mode = _fan_speed_table.get(device.get("speed"), FAN_LOW)
-        _LOGGER.debug("Initialized DnakeFreshAir: %s", self.__dict__)
+        self._attr_percentage = self._calculate_percentage(device.get("speed", 0))
+        self._error_code = device.get("errorCode", 0)
+        self._pm25 = device.get("pm25", 0)
 
     def is_hint_state(self, state):
+        """Check if the state corresponds to this fan."""
         return (
             state.get("devType") == self._dev_type
             and state.get("devNo") == self._dev_no
@@ -78,56 +81,112 @@ class DnakeFreshAir(FanEntity):
         )
 
     @property
-    def unique_id(self):
-        return f"dnake_fresh_air_{self._dev_no}_{self._dev_ch}"
+    def unique_id(self) -> str:
+        """Return a unique ID for the fan."""
+        return f"dnake_air_fresh_fan_{self._dev_no}_{self._dev_ch}"
 
     @property
-    def device_info(self):
+    def device_info(self) -> DeviceInfo:
+        """Return device information for the fan."""
         return DeviceInfo(
-            identifiers={(DOMAIN, f"fresh_air_{self._dev_no}_{self._dev_ch}")},
+            identifiers={(DOMAIN, f"air_fresh_fan_{self._dev_no}_{self._dev_ch}")},
             name=self._name,
             manufacturer=MANUFACTURER,
-            model="新风控制",
+            model="Fresh Air Fan",
             via_device=(DOMAIN, "gateway"),
         )
 
     @property
-    def name(self):
+    def name(self) -> str:
+        """Return the name of the fan."""
         return self._name
 
     @property
-    def is_on(self):
+    def is_on(self) -> Optional[bool]:
+        """Return true if the fan is on."""
         return self._is_on
 
     @property
-    def speed(self):
-        return self._fan_mode
+    def percentage(self) -> Optional[int]:
+        """Return the current speed as a percentage."""
+        return self._attr_percentage
 
     @property
-    def speed_count(self):
-        return 3
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional state attributes."""
+        return {
+            "error_code": self._error_code,
+            "pm25": self._pm25,
+        }
 
-    @property
-    def speed_list(self):
-        return list(_fan_speed_table.values())
+    def _calculate_percentage(self, speed: int) -> Optional[int]:
+        """Convert speed index to percentage."""
+        if speed not in _air_fresh_fan_table:
+            return None
+        if speed == 0:  # Off state
+            return 0
+        speed_range = (1, self._attr_speed_count)  # e.g., (1, 3) for low, medium, high
+        return round(ranged_value_to_percentage(speed_range, speed))
 
-    @property
-    def supported_features(self):
-        return SUPPORT_SET_SPEED
+    def _percentage_to_speed(self, percentage: int) -> int:
+        """Convert percentage to speed index."""
+        if percentage == 0:
+            return 0
+        speed_range = (1, self._attr_speed_count)  # e.g., (1, 3) for low, medium, high
+        speed_index = round(percentage_to_ranged_value(speed_range, percentage))
+        return max(1, min(speed_index, self._attr_speed_count))
 
-    async def async_turn_on(self, **kwargs):
-        _LOGGER.debug("Turning on fresh air %s", self._name)
-        success = await self.hass.async_add_executor_job(
-            assistant.set_fan_power, self._dev_no, self._dev_ch, True
+    async def async_turn_on(
+        self,
+        percentage: Optional[int] = None,
+        preset_mode: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Turn on the fan."""
+        if not self._is_on:
+            is_success = await self.hass.async_add_executor_job(
+                assistant.set_air_fresh_power, self._dev_no, self._dev_ch, True
+            )
+            if is_success:
+                self._is_on = True
+
+        if percentage is not None:
+            await self.async_set_percentage(percentage)
+
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn off the fan."""
+        is_success = await self.hass.async_add_executor_job(
+            assistant.set_air_fresh_power, self._dev_no, self._dev_ch, False
         )
-        if success:
-            self._is_on = True
+        if is_success:
+            self._is_on = False
+            self._attr_percentage = 0
             self.async_write_ha_state()
 
-    async def async_turn_off(self, **kwargs):
-        _LOGGER.debug("Turning off fresh air %s", self._name)
-        success = await self.hass.async_add_executor_job(
-            assistant.set_fan_power, self._dev_no, self._dev_ch, False
+    async def async_set_percentage(self, percentage: int) -> None:
+        """Set the speed of the fan as a percentage."""
+        if percentage == 0:
+            await self.async_turn_off()
+            return
+
+        speed_index = self._percentage_to_speed(percentage)
+        is_success = await self.hass.async_add_executor_job(
+            assistant.set_air_fresh_speed, self._dev_no, self._dev_ch, speed_index
         )
-        if success:
-            s
+        if is_success:
+            self._attr_percentage = self._calculate_percentage(speed_index)
+            self._is_on = True  # Ensure fan is marked as on when setting speed
+            self.async_write_ha_state()
+
+    def update_state(self, state: dict) -> None:
+        """Update the fan's state based on received data."""
+        self._is_on = state.get("powerOn", 0) == 1
+        speed = state.get("speed", 0)
+        self._attr_percentage = self._calculate_percentage(speed) if self._is_on else 0
+        self._error_code = state.get("errorCode", 0)
+        self._pm25 = state.get("pm25", 0)
+        self.async_write_ha_state()
+
+        
