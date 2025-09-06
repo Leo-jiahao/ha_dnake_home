@@ -336,8 +336,8 @@ class DnakeAirFresh(ClimateEntity):
     
     @property
     def temperature_unit(self):
-        return UnitOfMass.MICROGRAMS
-
+        return UnitOfTemperature.CELSIUS
+    
     @property
     def current_temperature(self):
         return self._current_pm25
