@@ -8,8 +8,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from .core.assistant import assistant
 from .cover import load_covers, update_covers_state
 from .light import load_lights, update_lights_state
-from .climate import load_climates, update_climates_state
-from .airfresh import load_air_freshs, update_air_fresh_state
+from .climate import load_climates, update_climates_state, load_air_freshs, update_air_fresh_state
 
 _LOGGER = logging.getLogger(__name__)
 
