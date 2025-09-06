@@ -36,6 +36,10 @@ class DnakeAirFresh(ClimateEntity, SensorEntity):
         self._current_pm25 = device.get("pm25", 0)
         self._fan_mode = _air_fresh_fan_table.get(device.get("speed"), FAN_LOW)
 
+    def is_hint_state(self, state):
+        return state.get('devType') == self._dev_type and state.get("devNo") == self._dev_no and state.get(
+            "devCh") == self._dev_ch
+    
     @property
     def unique_id(self):
         return f"dnake_air_fresh_{self._dev_no}_{self._dev_ch}"
