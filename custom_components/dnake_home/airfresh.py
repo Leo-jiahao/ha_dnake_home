@@ -8,10 +8,9 @@ from homeassistant.components.climate.const import (
     FAN_HIGH,
     ClimateEntityFeature,
 )
-from homeassistant.const import UnitOfTemperature, STATE_UNKNOWN
+from homeassistant.const import UnitOfMass
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 
@@ -24,8 +23,32 @@ _LOGGER = logging.getLogger(__name__)
 # 风速表
 _air_fresh_fan_table = {1: FAN_LOW, 2: FAN_MIDDLE, 3: FAN_HIGH}
 
+# 配置加载和实体更新
+def load_air_freshs(device_list):
+    air_fresh_devices = [
+        DnakeAirFresh(device) for device in device_list if device.get("ty") == 16926
+    ]
+    _LOGGER.info(f"find air_fresh num: {len(air_fresh_devices)}")
+    assistant.entries["air_fresh"] = air_fresh_devices
+
+def update_air_fresh_state(states):
+    air_fresh_devices = assistant.entries["air_fresh"]
+    for device in air_fresh_devices:
+        state = next((state for state in states if device.is_hint_state(state)), None)
+        if state:
+            device.update_state(state)
+
+async def async_setup_entry(
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        async_add_entities: AddEntitiesCallback,
+):
+    air_fresh_list = assistant.entries["air_fresh"]
+    if air_fresh_list:
+        async_add_entities(air_fresh_list)
+
 # 新风设备类
-class DnakeAirFresh(ClimateEntity, SensorEntity):
+class DnakeAirFresh(ClimateEntity):
 
     def __init__(self, device):
         self._name = device.get("na")
@@ -61,18 +84,18 @@ class DnakeAirFresh(ClimateEntity, SensorEntity):
             | ClimateEntityFeature.TURN_OFF
             | ClimateEntityFeature.FAN_MODE
         )
+    
+    @property
+    def temperature_unit(self):
+        return UnitOfMass.MICROGRAMS
 
+    @property
+    def current_temperature(self):
+        return self._current_pm25
+    
     @property
     def name(self):
         return self._name
-
-    @property
-    def state(self):
-        return self._current_pm25 if self._current_pm25 != 0 else STATE_UNKNOWN
-
-    @property
-    def unit_of_measurement(self):
-        return "µg/m³"  # PM2.5的单位
 
     @property
     def fan_mode(self):
@@ -125,26 +148,3 @@ class DnakeAirFresh(ClimateEntity, SensorEntity):
         self._fan_mode = _air_fresh_fan_table.get(state.get("speed"), FAN_LOW)
         self.async_write_ha_state()
 
-# 配置加载和实体更新
-def load_air_freshs(device_list):
-    air_fresh_devices = [
-        DnakeAirFresh(device) for device in device_list if device.get("ty") == 16926
-    ]
-    _LOGGER.info(f"find air_fresh num: {len(air_fresh_devices)}")
-    assistant.entries["air_fresh"] = air_fresh_devices
-
-def update_air_fresh_state(states):
-    air_fresh_devices = assistant.entries["air_fresh"]
-    for device in air_fresh_devices:
-        state = next((state for state in states if device.is_hint_state(state)), None)
-        if state:
-            device.update_state(state)
-
-async def async_setup_entry(
-        hass: HomeAssistant,
-        entry: ConfigEntry,
-        async_add_entities: AddEntitiesCallback,
-):
-    air_fresh_list = assistant.entries["air_fresh"]
-    if air_fresh_list:
-        async_add_entities(air_fresh_list)
