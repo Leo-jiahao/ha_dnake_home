@@ -13,16 +13,15 @@ from .core.constant import DOMAIN, MANUFACTURER
 
 _LOGGER = logging.getLogger(__name__)
 
-# Mapping for fan speeds (0: off, 1: low, 2: medium, 3: high)
+# Mapping for fan speeds (0: low, 1: medium, 2: high)
 _air_fresh_fan_table = {
-    0: "off",
-    1: "low",
-    2: "medium",
-    3: "high",
+    0: "low",
+    1: "medium",
+    2: "high",
 }
 
-# Number of speed levels (excluding off)
-SPEED_COUNT = len(_air_fresh_fan_table) - 1  # 3 speeds: low, medium, high
+# Number of speed levels
+SPEED_COUNT = len(_air_fresh_fan_table)  # 3 speeds: low, medium, high
 
 
 def load_fans(device_list):
@@ -123,18 +122,14 @@ class DnakeAirFreshFan(FanEntity):
         """Convert speed index to percentage."""
         if speed not in _air_fresh_fan_table:
             return None
-        if speed == 0:  # Off state
-            return 0
-        speed_range = (1, self._attr_speed_count)  # e.g., (1, 3) for low, medium, high
+        speed_range = (0, self._attr_speed_count - 1)  # e.g., (0, 2) for low, medium, high
         return round(ranged_value_to_percentage(speed_range, speed))
 
     def _percentage_to_speed(self, percentage: int) -> int:
         """Convert percentage to speed index."""
-        if percentage == 0:
-            return 0
-        speed_range = (1, self._attr_speed_count)  # e.g., (1, 3) for low, medium, high
+        speed_range = (0, self._attr_speed_count - 1)  # e.g., (0, 2) for low, medium, high
         speed_index = round(percentage_to_ranged_value(speed_range, percentage))
-        return max(1, min(speed_index, self._attr_speed_count))
+        return max(0, min(speed_index, self._attr_speed_count - 1))
 
     async def async_turn_on(
         self,
@@ -149,6 +144,9 @@ class DnakeAirFreshFan(FanEntity):
             )
             if is_success:
                 self._is_on = True
+                # Default to lowest speed (0 = low) if no percentage is specified
+                if percentage is None:
+                    percentage = self._calculate_percentage(0)
 
         if percentage is not None:
             await self.async_set_percentage(percentage)
@@ -162,15 +160,11 @@ class DnakeAirFreshFan(FanEntity):
         )
         if is_success:
             self._is_on = False
-            self._attr_percentage = 0
+            self._attr_percentage = None  # No speed when off
             self.async_write_ha_state()
 
     async def async_set_percentage(self, percentage: int) -> None:
         """Set the speed of the fan as a percentage."""
-        if percentage == 0:
-            await self.async_turn_off()
-            return
-
         speed_index = self._percentage_to_speed(percentage)
         is_success = await self.hass.async_add_executor_job(
             assistant.set_air_fresh_speed, self._dev_no, self._dev_ch, speed_index
@@ -184,9 +178,7 @@ class DnakeAirFreshFan(FanEntity):
         """Update the fan's state based on received data."""
         self._is_on = state.get("powerOn", 0) == 1
         speed = state.get("speed", 0)
-        self._attr_percentage = self._calculate_percentage(speed) if self._is_on else 0
+        self._attr_percentage = self._calculate_percentage(speed) if self._is_on else None
         self._error_code = state.get("errorCode", 0)
         self._pm25 = state.get("pm25", 0)
         self.async_write_ha_state()
-
-        
