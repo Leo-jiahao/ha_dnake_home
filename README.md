@@ -81,3 +81,19 @@ Integration > ADD
     - 开关新风系统
     - 设置模式：低速、中速、高速、强劲
 
+
+
+## 六、调试命令
+http://192.168.xx.xx/smart/speDev.info
+
+
+{
+  "action": "readAllDevState"
+}
+
+{
+    "action": "readDev",
+    "devNo": 16388,
+    "devCh": 0
+}
+
