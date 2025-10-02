@@ -3,10 +3,12 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import async_get  # 新增导入 device_registry
+from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry  # 可选：如果需要实体注册
 from homeassistant.helpers.event import async_track_time_interval
 
 from .core.assistant import assistant
-from .core.constant import DOMAIN  # 新增导入 DOMAIN
+from .core.constant import DOMAIN, MANUFACTURER  # 新增导入 MANUFACTURER（从 constant.py）
 from .cover import load_covers, update_covers_state
 from .light import load_lights, update_lights_state
 from .climate import load_climates, update_climates_state
@@ -29,6 +31,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         assistant.bind_iot_info(iot_device_name, gw_iot_name)
         device_list = await hass.async_add_executor_job(assistant.query_device_list)
         if device_list:
+            # 新增：注册网关设备（gateway），以支持 via_device 引用
+            device_registry = async_get(hass)
+            gateway_device = device_registry.async_get_or_create(
+                config_entry_id=entry.entry_id,  # 绑定到当前 config_entry
+                identifiers={(DOMAIN, "gateway")},
+                name="Dnake Gateway",  # 可自定义名称
+                manufacturer=MANUFACTURER,
+                model="Smart Home Gateway",  # 可自定义模型
+                sw_version=gw_iot_name,  # 可选：使用 IoT 名称作为版本
+                connections={(  # 可选：如果有 MAC 或其他连接
+                    "ip", gateway_ip  # 示例：IP 连接
+                )},
+            )
+            _LOGGER.debug(f"Gateway device registered: {gateway_device.id}")
+
             # 设备分类
             load_lights(device_list)
             load_covers(device_list)
